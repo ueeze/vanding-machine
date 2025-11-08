@@ -1,65 +1,170 @@
-import Image from "next/image";
+'use client'
+
+import { useState, useEffect } from 'react'
+import { parseEther } from 'ethers'
+import { connectWallet, ensureNetwork, getContract } from '../lib/eth'
+import { ownerAddress } from '../lib/constants'
+
+const itemNames = ['Apple Juice', 'Grape Juice', 'Coke', 'Water']
 
 export default function Home() {
+  const [account, setAccount] = useState<string>('')
+  const [status, setStatus] = useState<string>('')
+  const [stocks, setStocks] = useState<(number | null)[]>([
+    null,
+    null,
+    null,
+    null,
+  ])
+  const [stockInputs, setStockInputs] = useState<number[]>([0, 0, 0, 0])
+
+  const isOwner = account?.toLowerCase() === ownerAddress.toLowerCase()
+
+  useEffect(() => {
+    checkAllStocks()
+  }, [])
+
+  const onConnect = async () => {
+    try {
+      const addr = await connectWallet()
+      setAccount(addr)
+      setStatus('✅ 지갑 연결 완료')
+    } catch (e: any) {
+      setStatus(`❌ 지갑 연결 실패: ${e.message}`)
+    }
+  }
+
+  const buyItem = async (index: number) => {
+    try {
+      if (!account) {
+        setStatus('❌ 먼저 지갑을 연결해 주세요.')
+        return
+      }
+
+      await ensureNetwork()
+      const contract = await getContract(true)
+      const tx = await contract.buyItem(index, {
+        value: parseEther('0.0001'),
+      })
+      await tx.wait()
+      setStatus(`🛒 ${itemNames[index]} 구매 완료`)
+      checkStock(index)
+    } catch (e: any) {
+      setStatus(`❌ 구매 실패: ${e.message}`)
+    }
+  }
+
+  const addStock = async (index: number, amount: number) => {
+    try {
+      if (amount <= 0) {
+        setStatus('❌ 1개 이상 입력하세요.')
+        return
+      }
+      const contract = await getContract(true)
+      const tx = await contract.addStock(index, amount)
+      await tx.wait()
+      setStatus(`✅ ${itemNames[index]} 재고 ${amount}개 추가 완료`)
+      checkStock(index)
+
+      const updated = [...stockInputs]
+      updated[index] = 0
+      setStockInputs(updated)
+    } catch (e: any) {
+      setStatus(`❌ 재고 추가 실패: ${e.message}`)
+    }
+  }
+
+  const withdrawBalance = async () => {
+    try {
+      const contract = await getContract(true)
+      const tx = await contract.withdrawBalance()
+      await tx.wait()
+      setStatus('💸 잔액 인출 완료')
+    } catch (e: any) {
+      setStatus(`❌ 인출 실패: ${e.message}`)
+    }
+  }
+
+  const checkStock = async (index: number) => {
+    try {
+      const contract = await getContract(true)
+      const [, stock] = await contract.checkStock(index)
+      const newStocks = [...stocks]
+      newStocks[index] = Number(stock)
+      setStocks(newStocks)
+    } catch (e: any) {
+      setStatus(`⚠️ 재고 확인 실패: ${e.message}`)
+    }
+  }
+
+  const checkAllStocks = async () => {
+    try {
+      const contract = await getContract(true)
+      const stockPromises = itemNames.map((_, i) =>
+        contract
+          .checkStock(i)
+          .then(([_, stock]: [string, number]) => Number(stock))
+      )
+      const allStocks = await Promise.all(stockPromises)
+      setStocks(allStocks)
+    } catch (e: any) {
+      setStatus(`⚠️ 전체 재고 확인 실패: ${e.message}`)
+    }
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main>
+      <h1>🥤 Web3 자판기</h1>
+
+      <div className="card">
+        <button onClick={onConnect}>
+          {account ? `지갑: ${account}` : '지갑 연결'}
+        </button>
+        <button onClick={checkAllStocks}>📦 전체 재고 확인</button>
+      </div>
+
+      {itemNames.map((name, index) => (
+        <div className="item card" key={index}>
+          <h3>{name}</h3>
+          <p>재고: {stocks[index] ?? '확인 전'}</p>
+
+          <button onClick={() => buyItem(index)} disabled={!account}>
+            🛒 구매 (0.0001 ETH)
+          </button>
+          <button onClick={() => checkStock(index)}>🔍 재고 확인</button>
+
+          {isOwner && (
+            <div style={{ marginTop: '8px' }}>
+              <input
+                type="number"
+                min="1"
+                value={stockInputs[index] ?? 0}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  const updated = [...stockInputs]
+                  updated[index] = Number(e.target.value)
+                  setStockInputs(updated)
+                }}
+                style={{
+                  width: '60px',
+                  marginRight: '8px',
+                }}
+              />
+              <button onClick={() => addStock(index, stockInputs[index])}>
+                ➕ 재고 추가
+              </button>
+            </div>
+          )}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      ))}
+
+      {isOwner && (
+        <div className="card">
+          <h3>👑 관리자 기능</h3>
+          <button onClick={withdrawBalance}>💸 잔액 인출</button>
         </div>
-      </main>
-    </div>
-  );
+      )}
+
+      <p className="status">{status}</p>
+    </main>
+  )
 }
