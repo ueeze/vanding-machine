@@ -114,7 +114,8 @@ export default function Home() {
 
   return (
     <main>
-      <h1>Web3 자판기</h1>
+      <h1>Vanding Machine</h1>
+      <p>92313570 장수정</p>
 
       <div className="card">
         <button onClick={onConnect}>
