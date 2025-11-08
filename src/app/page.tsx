@@ -28,16 +28,16 @@ export default function Home() {
     try {
       const addr = await connectWallet()
       setAccount(addr)
-      setStatus('✅ 지갑 연결 완료')
+      setStatus('지갑 연결 완료')
     } catch (e: any) {
-      setStatus(`❌ 지갑 연결 실패: ${e.message}`)
+      setStatus(`지갑 연결 실패: ${e.message}`)
     }
   }
 
   const buyItem = async (index: number) => {
     try {
       if (!account) {
-        setStatus('❌ 먼저 지갑을 연결해 주세요.')
+        setStatus('먼저 지갑을 연결해 주세요.')
         return
       }
 
@@ -47,30 +47,30 @@ export default function Home() {
         value: parseEther('0.0001'),
       })
       await tx.wait()
-      setStatus(`🛒 ${itemNames[index]} 구매 완료`)
+      setStatus(`${itemNames[index]} 구매 완료`)
       checkStock(index)
     } catch (e: any) {
-      setStatus(`❌ 구매 실패: ${e.message}`)
+      setStatus(`구매 실패: ${e.message}`)
     }
   }
 
   const addStock = async (index: number, amount: number) => {
     try {
       if (amount <= 0) {
-        setStatus('❌ 1개 이상 입력하세요.')
+        setStatus('1개 이상 입력하세요.')
         return
       }
       const contract = await getContract(true)
       const tx = await contract.addStock(index, amount)
       await tx.wait()
-      setStatus(`✅ ${itemNames[index]} 재고 ${amount}개 추가 완료`)
+      setStatus(`${itemNames[index]} 재고 ${amount}개 추가 완료`)
       checkStock(index)
 
       const updated = [...stockInputs]
       updated[index] = 0
       setStockInputs(updated)
     } catch (e: any) {
-      setStatus(`❌ 재고 추가 실패: ${e.message}`)
+      setStatus(`재고 추가 실패: ${e.message}`)
     }
   }
 
@@ -79,9 +79,9 @@ export default function Home() {
       const contract = await getContract(true)
       const tx = await contract.withdrawBalance()
       await tx.wait()
-      setStatus('💸 잔액 인출 완료')
+      setStatus('잔액 인출 완료')
     } catch (e: any) {
-      setStatus(`❌ 인출 실패: ${e.message}`)
+      setStatus(`인출 실패: ${e.message}`)
     }
   }
 
@@ -93,7 +93,7 @@ export default function Home() {
       newStocks[index] = Number(stock)
       setStocks(newStocks)
     } catch (e: any) {
-      setStatus(`⚠️ 재고 확인 실패: ${e.message}`)
+      setStatus(`재고 확인 실패: ${e.message}`)
     }
   }
 
@@ -108,19 +108,19 @@ export default function Home() {
       const allStocks = await Promise.all(stockPromises)
       setStocks(allStocks)
     } catch (e: any) {
-      setStatus(`⚠️ 전체 재고 확인 실패: ${e.message}`)
+      setStatus(`전체 재고 확인 실패: ${e.message}`)
     }
   }
 
   return (
     <main>
-      <h1>🥤 Web3 자판기</h1>
+      <h1>Web3 자판기</h1>
 
       <div className="card">
         <button onClick={onConnect}>
           {account ? `지갑: ${account}` : '지갑 연결'}
         </button>
-        <button onClick={checkAllStocks}>📦 전체 재고 확인</button>
+        <button onClick={checkAllStocks}>전체 재고 확인</button>
       </div>
 
       {itemNames.map((name, index) => (
@@ -129,9 +129,9 @@ export default function Home() {
           <p>재고: {stocks[index] ?? '확인 전'}</p>
 
           <button onClick={() => buyItem(index)} disabled={!account}>
-            🛒 구매 (0.0001 ETH)
+            구매 (0.0001 ETH)
           </button>
-          <button onClick={() => checkStock(index)}>🔍 재고 확인</button>
+          <button onClick={() => checkStock(index)}>재고 확인</button>
 
           {isOwner && (
             <div style={{ marginTop: '8px' }}>
@@ -150,7 +150,7 @@ export default function Home() {
                 }}
               />
               <button onClick={() => addStock(index, stockInputs[index])}>
-                ➕ 재고 추가
+                재고 추가
               </button>
             </div>
           )}
@@ -159,8 +159,8 @@ export default function Home() {
 
       {isOwner && (
         <div className="card">
-          <h3>👑 관리자 기능</h3>
-          <button onClick={withdrawBalance}>💸 잔액 인출</button>
+          <h3>관리자 기능</h3>
+          <button onClick={withdrawBalance}>잔액 인출</button>
         </div>
       )}
 
